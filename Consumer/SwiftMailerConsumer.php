@@ -21,18 +21,6 @@ class SwiftMailerConsumer implements ConsumerInterface
     protected $mailer;
 
     /**
-     * @param $vendorDir
-     */
-    public function __construct($vendorDir)
-    {
-        require_once sprintf('%s/lib/classes/Swift.php', $vendorDir);
-
-        if (!\Swift::$initialized) {
-            \Swift::registerAutoload(sprintf('%s/lib/swift_init.php', $vendorDir));
-        }
-    }
-
-    /**
      * @param \Swift_Mailer $mailer
      */
     public function setMailer(\Swift_Mailer $mailer)
