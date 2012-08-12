@@ -70,7 +70,7 @@ class SwiftMailerConsumer implements ConsumerInterface
     {
         $mail = $this->mailer->createMessage()
             ->setSubject($message->getValue('subject'))
-            ->setFrom(array($message->getValue(array('from', 'email')) => $message->getValue(array('from', 'name'))))
+            ->setFrom($message->getValue('from'))
             ->setTo($message->getValue('to'));
 
         if ($text = $message->getValue(array('message', 'text'))) {
