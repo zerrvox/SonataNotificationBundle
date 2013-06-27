@@ -23,7 +23,7 @@ class SwiftMailerConsumer implements ConsumerInterface
     /**
      * @param \Swift_Mailer $mailer
      */
-    public function setMailer(\Swift_Mailer $mailer)
+    public function __construct(\Swift_Mailer $mailer)
     {
         $this->mailer = $mailer;
     }
@@ -33,21 +33,21 @@ class SwiftMailerConsumer implements ConsumerInterface
      */
     public function process(ConsumerEvent $event)
     {
-        if (!$this->mailer->getTransport()->isStarted()){
+        if (!$this->mailer->getTransport()->isStarted()) {
             $this->mailer->getTransport()->start();
         }
 
         $exception = false;
         try {
             $this->sendEmail($event->getMessage());
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             $exception = $e;
         }
 
         $this->mailer->getTransport()->stop();
 
         if ($exception) {
-            throw new $exception;
+            throw $exception;
         }
     }
 

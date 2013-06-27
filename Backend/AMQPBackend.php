@@ -19,13 +19,16 @@ use Sonata\NotificationBundle\Iterator\AMQPMessageIterator;
 
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-use PhpAmqpLib\Connection\AMQPConnection;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Message\AMQPMessage;
 
+use Liip\Monitor\Result\CheckResult;
+
+/**
+ * Consumer side of the rabbitMQ backend.
+ */
 class AMQPBackend implements BackendInterface
 {
-    protected $settings;
 
     protected $exchange;
 
@@ -33,18 +36,36 @@ class AMQPBackend implements BackendInterface
 
     protected $connection;
 
-    protected $channel;
+    protected $key;
+
+    protected $recover;
+
+    protected $deadLetterExchange;
+
+    protected $dispatcher = null;
 
     /**
-     * @param array $settings
      * @param string $exchange
      * @param string $queue
+     * @param string $recover
+     * @param string $key
+     * @param string $deadLetterExchange
      */
-    public function __construct(array $settings, $exchange, $queue)
+    public function __construct($exchange, $queue, $recover, $key, $deadLetterExchange = null)
     {
-        $this->settings = $settings;
         $this->exchange = $exchange;
         $this->queue    = $queue;
+        $this->recover  = $recover;
+        $this->key      = $key;
+        $this->deadLetterExchange = $deadLetterExchange;
+    }
+
+    /**
+     * @param AMQPBackendDispatcher $dispatcher
+     */
+    public function setDispatcher(AMQPBackendDispatcher $dispatcher)
+    {
+        $this->dispatcher = $dispatcher;
     }
 
     /**
@@ -52,21 +73,11 @@ class AMQPBackend implements BackendInterface
      */
     protected function getChannel()
     {
-        if (!$this->channel) {
-            $this->connection = new AMQPConnection(
-                $this->settings['host'],
-                $this->settings['port'],
-                $this->settings['user'],
-                $this->settings['pass'],
-                $this->settings['vhost']
-            );
-
-            $this->channel = $this->connection->channel();
-
-            register_shutdown_function(array($this, 'shutdown'));
+        if ($this->dispatcher === null) {
+            throw new \RuntimeException('Unable to retrieve AMQP channel without dispatcher.');
         }
 
-        return $this->channel;
+        return $this->dispatcher->getChannel();
     }
 
     /**
@@ -74,14 +85,22 @@ class AMQPBackend implements BackendInterface
      */
     public function initialize()
     {
+        $args = array();
+
+        if ($this->deadLetterExchange !== null) {
+            $args['x-dead-letter-exchange'] = array('S', $this->deadLetterExchange);
+        }
+
         /**
          * name: $queue
          * passive: false
          * durable: true // the queue will survive server restarts
          * exclusive: false // the queue can be accessed in other channels
          * auto_delete: false //the queue won't be deleted once the channel is closed.
+         * no_wait: false the channel will wait until queue.declare_ok is received
+         * args: array
          */
-        $this->getChannel()->queue_declare($this->queue, false, true, false, false);
+        $this->getChannel()->queue_declare($this->queue, false, true, false, false, false, $args);
 
         /**
          * name: $exchange
@@ -92,7 +111,7 @@ class AMQPBackend implements BackendInterface
          **/
        $this->getChannel()->exchange_declare($this->exchange, 'direct', false, true, false);
 
-       $this->getChannel()->queue_bind($this->queue, $this->exchange);
+       $this->getChannel()->queue_bind($this->queue, $this->exchange, $this->key);
     }
 
     /**
@@ -112,7 +131,7 @@ class AMQPBackend implements BackendInterface
             'delivery-mode' => 2
         ));
 
-        $this->getChannel()->basic_publish($amq, $this->exchange);
+        $this->getChannel()->basic_publish($amq, $this->exchange, $this->key);
     }
 
     /**
@@ -159,32 +178,24 @@ class AMQPBackend implements BackendInterface
             $message->setCompletedAt(new \DateTime());
             $message->setState(MessageInterface::STATE_DONE);
 
-        } catch(HandlingException $e) {
+        } catch (HandlingException $e) {
             $message->setCompletedAt(new \DateTime());
             $message->setState(MessageInterface::STATE_ERROR);
 
             $message->getValue('AMQMessage')->delivery_info['channel']->basic_ack($message->getValue('AMQMessage')->delivery_info['delivery_tag']);
 
             throw new HandlingException("Error while handling a message", 0, $e);
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             $message->setCompletedAt(new \DateTime());
             $message->setState(MessageInterface::STATE_ERROR);
 
+            if ($this->recover === true) {
+                $message->getValue('AMQMessage')->delivery_info['channel']->basic_recover($message->getValue('AMQMessage')->delivery_info['delivery_tag']);
+            } elseif ($this->deadLetterExchange !== null) {
+                $message->getValue('AMQMessage')->delivery_info['channel']->basic_reject($message->getValue('AMQMessage')->delivery_info['delivery_tag'], false);
+            }
+
             throw new HandlingException("Error while handling a message", 0, $e);
-        }
-    }
-
-    /**
-     * @return void
-     */
-    public function shutdown()
-    {
-        if ($this->channel) {
-            $this->channel->close();
-        }
-
-        if ($this->connection) {
-            $this->connection->close();
         }
     }
 
@@ -195,11 +206,11 @@ class AMQPBackend implements BackendInterface
     {
         try {
             $this->getChannel();
-        } catch(\Exception $e) {
-            return new BackendStatus(BackendStatus::CRITICAL, 'Error : '.$e->getMessage(). ' (RabbitMQ)');
+        } catch (\Exception $e) {
+            return $this->buildResult($e->getMessage(), CheckResult::CRITICAL);
         }
 
-        return new BackendStatus(BackendStatus::OK, 'Channel is running (RabbitMQ)');
+        return $this->buildResult('Channel is running (RabbitMQ)', CheckResult::OK);
     }
 
     /**
@@ -208,5 +219,15 @@ class AMQPBackend implements BackendInterface
     public function cleanup()
     {
         throw new \RuntimeException('Not implemented');
+    }
+
+    /**
+     * @param  string                           $message
+     * @param  string                           $status
+     * @return \Liip\Monitor\Result\CheckResult
+     */
+    protected function buildResult($message, $status)
+    {
+        return new CheckResult("Rabbitmq backend health check", $message, $status);
     }
 }

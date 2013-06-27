@@ -31,12 +31,14 @@ class Configuration implements ConfigurationInterface
 
         $rootNode
             ->scalarNode('backend')->defaultValue('sonata.notification.backend.runtime')->end()
+            ->append($this->getQueueNode())
             ->arrayNode('backends')
                 ->addDefaultsIfNotSet()
                 ->children()
                     ->arrayNode('doctrine')
                         ->addDefaultsIfNotSet()
                         ->children()
+                            ->scalarNode('message_manager')->defaultValue('sonata.notification.manager.message.default')->end()
                             ->scalarNode('max_age')->defaultValue(86400)->end() # max age in second
                             ->scalarNode('pause')->defaultValue(500000)->end()  # delay in microseconds
                             ->arrayNode('states')
@@ -54,7 +56,6 @@ class Configuration implements ConfigurationInterface
                         ->addDefaultsIfNotSet()
                         ->children()
                             ->scalarNode('exchange')->cannotBeEmpty()->isRequired()->end()
-                            ->scalarNode('queue')->cannotBeEmpty()->isRequired()->end()
                             ->arrayNode('connection')
                                 ->addDefaultsIfNotSet()
                                 ->children()
@@ -63,6 +64,7 @@ class Configuration implements ConfigurationInterface
                                     ->scalarNode('user')->defaultValue('guest')->end()
                                     ->scalarNode('pass')->defaultValue('guest')->end()
                                     ->scalarNode('vhost')->defaultValue('guest')->end()
+                                    ->scalarNode('console_url')->defaultValue('http://localhost:55672/api')->end()
                                 ->end()
                             ->end()
                         ->end()
@@ -71,14 +73,6 @@ class Configuration implements ConfigurationInterface
             ->end()
             ->arrayNode('consumers')
                 ->addDefaultsIfNotSet()
-                ->children()
-                    ->arrayNode('swift_mailer')
-                        ->addDefaultsIfNotSet()
-                        ->children()
-                            ->scalarNode('path')->defaultValue('%kernel.root_dir%/../vendor/swiftmailer')->end()
-                        ->end()
-                    ->end()
-                ->end()
             ->end()
             ->arrayNode('class')
                 ->addDefaultsIfNotSet()
@@ -86,9 +80,43 @@ class Configuration implements ConfigurationInterface
                     ->scalarNode('message')->defaultValue('Sonata\\NotificationBundle\\Entity\\Message')->end()
                 ->end()
             ->end()
+            ->arrayNode('admin')
+                ->addDefaultsIfNotSet()
+                ->children()
+                    ->arrayNode('message')
+                        ->addDefaultsIfNotSet()
+                        ->children()
+                            ->scalarNode('class')->cannotBeEmpty()->defaultValue('Sonata\\NotificationBundle\\Admin\\MessageAdmin')->end()
+                            ->scalarNode('controller')->cannotBeEmpty()->defaultValue('SonataNotificationBundle:MessageAdmin')->end()
+                            ->scalarNode('translation')->cannotBeEmpty()->defaultValue('SonataNotificationBundle')->end()
+                        ->end()
+                    ->end()
+                ->end()
+            ->end()
         ;
 
-
         return $treeBuilder;
+    }
+
+    protected function getQueueNode()
+    {
+        $treeBuilder = new TreeBuilder();
+        $node = $treeBuilder->root('queues');
+
+        $connectionNode = $node
+            ->requiresAtLeastOneElement()
+            ->prototype('array')
+        ;
+
+        $connectionNode->children()
+            ->scalarNode('queue')->cannotBeEmpty()->isRequired()->end()
+            ->scalarNode('routing_key')->defaultValue('')->end()
+            ->booleanNode('default')->defaultValue(false)->end()
+            ->booleanNode('recover')->defaultValue(false)->end()
+            ->scalarNode('dead_letter_exchange')->defaultValue(null)->end()
+        ->end();
+
+        return $node;
+
     }
 }

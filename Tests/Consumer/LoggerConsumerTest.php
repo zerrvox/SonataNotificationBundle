@@ -1,6 +1,5 @@
 <?php
 
-
 /*
  * This file is part of the Sonata package.
  *
@@ -10,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Sonata\NotificationBundle\Tests\Entity;
+namespace Sonata\NotificationBundle\Tests\Consumer;
 
 use Sonata\NotificationBundle\Consumer\LoggerConsumer;
 use Sonata\NotificationBundle\Consumer\ConsumerEvent;

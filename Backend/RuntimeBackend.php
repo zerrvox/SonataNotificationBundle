@@ -12,12 +12,12 @@
 namespace Sonata\NotificationBundle\Backend;
 
 use Sonata\NotificationBundle\Model\MessageInterface;
-use Sonata\NotificationBundle\Model\MessageManagerInterface;
-use Sonata\NotificationBundle\Iterator\MessageManagerMessageIterator;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Sonata\NotificationBundle\Consumer\ConsumerEvent;
 use Sonata\NotificationBundle\Model\Message;
 use Sonata\NotificationBundle\Exception\HandlingException;
+
+use Liip\Monitor\Result\CheckResult;
 
 class RuntimeBackend implements BackendInterface
 {
@@ -67,7 +67,7 @@ class RuntimeBackend implements BackendInterface
      */
     public function getIterator()
     {
-        throw new \RuntimeException('A RuntimeBackend do not provide an Iterator');
+        return new \EmptyIterator();
     }
 
     /**
@@ -99,7 +99,7 @@ class RuntimeBackend implements BackendInterface
             $message->setCompletedAt(new \DateTime());
             $message->setState(MessageInterface::STATE_DONE);
 
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             $message->setCompletedAt(new \DateTime());
             $message->setState(MessageInterface::STATE_ERROR);
 
@@ -112,6 +112,6 @@ class RuntimeBackend implements BackendInterface
      */
     public function getStatus()
     {
-         return new BackendStatus(BackendStatus::SUCCESS, 'Ok  (Runtime)');
+         return new CheckResult('Runtime backend health check', 'Ok  (Runtime)', CheckResult::OK);
     }
 }

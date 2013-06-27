@@ -11,8 +11,8 @@
 
 namespace Sonata\NotificationBundle\Backend;
 
-use Liip\MonitorBundle\Check\CheckInterface;
-use Liip\MonitorBundle\Result\CheckResult;
+use Liip\Monitor\Check\CheckInterface;
+use Liip\Monitor\Result\CheckResult;
 
 class BackendHealthCheck implements CheckInterface
 {
@@ -42,5 +42,13 @@ class BackendHealthCheck implements CheckInterface
     public function getName()
     {
         return "Sonata Notification Default Backend";
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getGroup()
+    {
+        return 'sonata';
     }
 }

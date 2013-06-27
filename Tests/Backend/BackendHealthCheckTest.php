@@ -1,6 +1,5 @@
 <?php
 
-
 /*
  * This file is part of the Sonata package.
  *
@@ -10,24 +9,32 @@
  * file that was distributed with this source code.
  */
 
-namespace Sonata\NotificationBundle\Tests\Page;
+namespace Sonata\NotificationBundle\Tests\Notification;
 
 use Sonata\NotificationBundle\Backend\BackendHealthCheck;
-use Sonata\NotificationBundle\Backend\BackendStatus;
+
+use Liip\Monitor\Result\CheckResult;
 
 class BackendHealthCheckTest extends \PHPUnit_Framework_TestCase
 {
+    public function setUp()
+    {
+        if (!interface_exists('Liip\Monitor\Check\CheckInterface')) {
+            $this->markTestSkipped('Liip\Monitor\Check\CheckInterface does not exist');
+        }
+
+    }
     public function testCheck()
     {
-        $status = new BackendStatus(BackendStatus::OK, 'OK');
+        $result = new CheckResult('Test check', 'OK', CheckResult::OK);
 
         $backend = $this->getMock('Sonata\NotificationBundle\Backend\BackendInterface');
-        $backend->expects($this->once())->method('getStatus')->will($this->returnValue($status));
+        $backend->expects($this->once())->method('getStatus')->will($this->returnValue($result));
 
         $health = new BackendHealthCheck($backend);
 
-        $status = $health->check();
+        $result = $health->check();
 
-        $this->assertEquals(BackendStatus::OK, $status->getStatus());
+        $this->assertEquals(CheckResult::OK, $result->getStatus());
     }
 }

@@ -1,6 +1,5 @@
 <?php
 
-
 /*
  * This file is part of the Sonata package.
  *
@@ -10,13 +9,14 @@
  * file that was distributed with this source code.
  */
 
-namespace Sonata\NotificationBundle\Tests\Page;
+namespace Sonata\NotificationBundle\Tests\Notification;
 
 use Sonata\NotificationBundle\Backend\MessageManagerBackend;
 use Sonata\NotificationBundle\Entity\Message;
 use Sonata\NotificationBundle\Model\MessageInterface;
 use Sonata\NotificationBundle\Exception\HandlingException;
-use Sonata\NotificationBundle\Backend\BackendStatus;
+
+use Liip\Monitor\Result\CheckResult;
 
 class MessageManagerProducerTest extends \PHPUnit_Framework_TestCase
 {
@@ -96,12 +96,12 @@ class MessageManagerProducerTest extends \PHPUnit_Framework_TestCase
 
         $status = $backend->getStatus();
 
-        $this->assertInstanceOf('Sonata\NotificationBundle\Backend\BackendStatus', $status);
+        $this->assertInstanceOf('Liip\Monitor\Result\CheckResult', $status);
         $this->assertEquals($expectedStatus, $status->getStatus());
         $this->assertEquals($message, $status->getMessage());
     }
 
-    static function statusProvider()
+    public static function statusProvider()
     {
         $data = array();
 
@@ -112,7 +112,7 @@ class MessageManagerProducerTest extends \PHPUnit_Framework_TestCase
                 MessageInterface::STATE_OPEN => 100,
                 MessageInterface::STATE_DONE => 10000,
             ),
-            BackendStatus::CRITICAL,
+            CheckResult::CRITICAL,
             'Too many messages processed at the same time (Database)'
         );
 
@@ -123,7 +123,7 @@ class MessageManagerProducerTest extends \PHPUnit_Framework_TestCase
                 MessageInterface::STATE_OPEN => 100,
                 MessageInterface::STATE_DONE => 10000,
             ),
-            BackendStatus::CRITICAL,
+            CheckResult::CRITICAL,
             'Too many errors (Database)'
         );
 
@@ -134,7 +134,7 @@ class MessageManagerProducerTest extends \PHPUnit_Framework_TestCase
                 MessageInterface::STATE_OPEN => 101, #here
                 MessageInterface::STATE_DONE => 10000,
             ),
-            BackendStatus::WARNING,
+            CheckResult::WARNING,
             'Too many messages waiting to be processed (Database)'
         );
 
@@ -145,7 +145,7 @@ class MessageManagerProducerTest extends \PHPUnit_Framework_TestCase
                 MessageInterface::STATE_OPEN => 100,
                 MessageInterface::STATE_DONE => 10001, #here
             ),
-            BackendStatus::WARNING,
+            CheckResult::WARNING,
             'Too many processed messages, please clean the database (Database)'
         );
 
@@ -156,7 +156,7 @@ class MessageManagerProducerTest extends \PHPUnit_Framework_TestCase
                 MessageInterface::STATE_OPEN => 1,
                 MessageInterface::STATE_DONE => 1,
             ),
-            BackendStatus::OK,
+            CheckResult::OK,
             'Ok (Database)'
         );
 

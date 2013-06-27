@@ -11,7 +11,6 @@
 
 namespace Sonata\NotificationBundle\Consumer;
 
-use Sonata\NotificationBundle\Model\MessageInterface;
 use Symfony\Component\HttpKernel\Log\LoggerInterface;
 use Sonata\NotificationBundle\Exception\InvalidParameterException;
 
@@ -31,7 +30,7 @@ class LoggerConsumer implements ConsumerInterface
     );
 
     /**
-     * @param \Symfony\Component\HttpKernel\Log\LoggerInterface $logger
+     * @param LoggerInterface $logger
      */
     public function __construct(LoggerInterface $logger)
     {

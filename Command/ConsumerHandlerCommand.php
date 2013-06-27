@@ -11,14 +11,14 @@
 
 namespace Sonata\NotificationBundle\Command;
 
+use Sonata\NotificationBundle\Backend\QueueDispatcherInterface;
+
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\Output;
 
-use Sonata\NotificationBundle\Model\MessageInterface;
 use Sonata\NotificationBundle\Consumer\ConsumerInterface;
 
 class ConsumerHandlerCommand extends ContainerAwareCommand
@@ -28,17 +28,21 @@ class ConsumerHandlerCommand extends ContainerAwareCommand
         $this->setName('sonata:notification:start');
         $this->setDescription('Listen for incoming messages');
         $this->addOption('iteration', 'i', InputOption::VALUE_OPTIONAL ,'Only run n iterations before exiting', false);
+        $this->addOption('type', null, InputOption::VALUE_OPTIONAL, 'Use a specific backed based on a message type', null);
     }
 
     /**
-     * @param \Symfony\Component\Console\Input\InputInterface $input
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
+     * @param InputInterface  $input
+     * @param OutputInterface $output
+     *
      * @return void
      */
     public function execute(InputInterface $input, OutputInterface $output)
     {
-        $output->writeln('<info>Checking listeners</info>');
-        foreach($this->getDispatcher()->getListeners() as $type => $listeners) {
+        $startDate = new \DateTime();
+        $now = $startDate->format('r');
+        $output->writeln(sprintf('[%s] <info>Checking listeners</info>', $now));
+        foreach ($this->getDispatcher()->getListeners() as $type => $listeners) {
             $output->writeln(sprintf(" - %s", $type));
             foreach ($listeners as $listener) {
                 if (!$listener[0] instanceof ConsumerInterface) {
@@ -49,22 +53,27 @@ class ConsumerHandlerCommand extends ContainerAwareCommand
             }
         }
 
-        $backend = $this->getBackend();
+        $type = $input->getOption('type');
+        $backend = $this->getBackend($type);
 
         $output->writeln("");
-        $output->write('Initialize backend ...');
+        $output->write(sprintf('[%s] <info>Initialize backend</info> ...', $now));
 
         // initialize the backend
         $backend->initialize();
         $output->writeln(" done!");
 
-        $output->writeln(sprintf("<info>Starting the backend handler</info> - %s", get_class($backend)));
+        if ($type === null) {
+            $output->writeln(sprintf("[%s] <info>Starting the backend handler</info> - %s", $now, get_class($backend)));
+        } else {
+            $output->writeln(sprintf("[%s] <info>Starting the backend handler</info> - %s (type: %s)", $now, get_class($backend), $type));
+        }
 
         $dispatcher = $this->getDispatcher();
 
         $startMemoryUsage = memory_get_usage(true);
         $i = 0;
-        foreach($backend->getIterator() as $message) {
+        foreach ($backend->getIterator() as $message) {
             $i++;
             if (!$message->getType()) {
                 $output->write("<error>Skipping : no type defined </error>");
@@ -103,6 +112,7 @@ class ConsumerHandlerCommand extends ContainerAwareCommand
 
             if ($input->getOption('iteration') && $i >= (int) $input->getOption('iteration')) {
                 $output->writeln('End of iteration cycle');
+
                 return;
             }
         }
@@ -131,11 +141,28 @@ class ConsumerHandlerCommand extends ContainerAwareCommand
     }
 
     /**
+     * @param  string                                              $type
      * @return \Sonata\NotificationBundle\Backend\BackendInterface
      */
-    private function getBackend()
+    private function getBackend($type = null)
     {
-        return $this->getContainer()->get('sonata.notification.backend');
+        $backend = $this->getContainer()->get('sonata.notification.backend');
+
+        if ($backend instanceof QueueDispatcherInterface) {
+            return $backend->getBackend($type);
+        }
+
+        return $backend;
+    }
+
+    /**
+     * @param  string            $type
+     * @throws \RuntimeException
+     */
+    protected function throwTypeNotFoundException($type, $backend)
+    {
+        throw new \RuntimeException("The requested backend for the type '" . $type . " 'does not exist. \nMake sure the backend '" .
+                get_class($backend) . "' \nsupports multiple queues and the routing_key is defined. (Currently rabbitmq only)");
     }
 
     /**

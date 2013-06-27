@@ -19,6 +19,8 @@ class Message implements MessageInterface
 
     protected $state;
 
+    protected $restartCount;
+
     protected $group;
 
     protected $createdAt;
@@ -31,6 +33,17 @@ class Message implements MessageInterface
 
     public function __construct()
     {
+        $this->createdAt = new \DateTime();
+        $this->updatedAt = new \DateTime();
+        $this->state = self::STATE_OPEN;
+    }
+
+    public function __clone()
+    {
+        $this->state = self::STATE_OPEN;
+        $this->startedAt = null;
+        $this->completedAt = null;
+
         $this->createdAt = new \DateTime();
         $this->updatedAt = new \DateTime();
     }
@@ -75,7 +88,7 @@ class Message implements MessageInterface
     /**
      * {@inheritdoc}
      */
-    public function setCompletedAt(\DateTime $completedAt)
+    public function setCompletedAt(\DateTime $completedAt = null)
     {
         $this->completedAt = $completedAt;
     }
@@ -91,7 +104,7 @@ class Message implements MessageInterface
     /**
      * {@inheritdoc}
      */
-    public function setCreatedAt(\DateTime $createdAt)
+    public function setCreatedAt(\DateTime $createdAt = null)
     {
         $this->createdAt = $createdAt;
     }
@@ -155,7 +168,23 @@ class Message implements MessageInterface
     /**
      * {@inheritdoc}
      */
-    public function setUpdatedAt(\DateTime $updatedAt)
+    public function setRestartCount($restartCount)
+    {
+        $this->restartCount = $restartCount;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getRestartCount()
+    {
+        return $this->restartCount;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setUpdatedAt(\DateTime $updatedAt = null)
     {
         $this->updatedAt = $updatedAt;
     }
@@ -171,20 +200,21 @@ class Message implements MessageInterface
     /**
      * {@inheritdoc}
      */
-    static function getStateList()
+    public static function getStateList()
     {
         return array(
             self::STATE_OPEN            => 'open',
             self::STATE_IN_PROGRESS     => 'in_progress',
             self::STATE_DONE            => 'done',
-            self::STATE_ERROR           => 'error'
+            self::STATE_ERROR           => 'error',
+            self::STATE_CANCELLED       => 'cancelled'
         );
     }
 
     /**
      * {@inheritdoc}
      */
-    public function setStartedAt(\DateTime $startedAt)
+    public function setStartedAt(\DateTime $startedAt = null)
     {
         $this->startedAt = $startedAt;
     }
@@ -195,5 +225,39 @@ class Message implements MessageInterface
     public function getStartedAt()
     {
         return $this->startedAt;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getStateName()
+    {
+        $list = self::getStateList();
+
+        return isset($list[$this->getState()]) ? $list[$this->getState()] : '';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function isRunning()
+    {
+        return $this->state == self::STATE_IN_PROGRESS;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function isError()
+    {
+        return $this->state == self::STATE_ERROR;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function isOpen()
+    {
+        return $this->state == self::STATE_OPEN;
     }
 }

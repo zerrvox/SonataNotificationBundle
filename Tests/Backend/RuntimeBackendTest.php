@@ -1,6 +1,5 @@
 <?php
 
-
 /*
  * This file is part of the Sonata package.
  *
@@ -10,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Sonata\NotificationBundle\Tests\Page;
+namespace Sonata\NotificationBundle\Tests\Notification;
 
 use Sonata\NotificationBundle\Backend\RuntimeBackend;
 use Sonata\NotificationBundle\Entity\Message;
@@ -33,17 +32,13 @@ class RuntimeBackendTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(array('message' => 'salut'), $message->getBody());
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testIterator()
     {
         $dispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
         $backend = new RuntimeBackend($dispatcher);
 
-        $backend->getIterator();
+        $this->assertInstanceOf('Iterator', $backend->getIterator());
     }
-
 
     public function testHandleSuccess()
     {
